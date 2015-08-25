@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Video Switcher</title>
+    <meta name="viewport" content="width=device-width">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/react-with-addons.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/JSXTransformer.js"></script>
+    <script src="https://cdn.firebase.com/js/client/2.2.7/firebase.js"></script>
+    <script src="https://jwpsrv.com/library/cQwJLOoiEeS0FRJtO5t17w.js"></script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.5/flatly/bootstrap.min.css">
+
+    <style>
+      .cp-component {
+        margin-top: 1em;
+      }
+
+      @media (max-width: 767px) {
+        .text-right { text-align: left }
+      }
+    </style>
+  </head>
+  <body>
+    <div  class="container" id="container"></div>
+
+    <script type="text/jsx">
+      /** @jsx React.DOM */
+
+      var Marksheet = React.createClass({
+        getInitialState: function() {
+          return {
+            videos: [],
+            selectedVideo: null
+          };
+        },
+
+        componentWillMount: function() {
+          this.firebaseRef = new Firebase('https://video-switcher.firebaseio.com/videoSwitcher');
+          this.firebaseRef.on('value', function(dataSnapshot) {
+            this.setState(dataSnapshot.val());
+          }.bind(this));
+        },
+
+        selectedVideo: function() {
+          return this.state.videos[this.state.selectedVideo];
+        },
+
+        setSelectedVideo: function(e) {
+          var state = this.state;
+          state['selectedVideo'] = e.target.value;
+          state['activeTab'] = 'survey';
+          this.setStateWithFirebase(state);
+        },
+
+        video: function() {
+          if (this.state.selectedVideo) {
+            return (
+              <div className="cp-component">
+                <Video videoURL={this.selectedVideo().videoURL} />
+              </div>
+            );
+          }
+        },
+
+        setStateWithFirebase: function(state) {
+          this.setState(state);
+          this.firebaseRef.set(state);
+        },
+
+        render: function() {
+          return (
+            <div className="row cp-component">
+              <div className="col-lg-10 col-lg-offset-1">
+                <VideoList selectedVideo={this.state.selectedVideo} videos={this.state.videos} selectVideo={this.setSelectedVideo} />
+                {this.video()}
+              </div>
+            </div>
+          );
+        }
+      });
+
+      var Video = React.createClass({
+        componentDidMount: function() {
+          this.video = jwplayer(React.findDOMNode(this.refs.video));
+          this.setupVideo();
+        },
+
+        componentDidUpdate: function(prevProps) {
+          if (prevProps.videoURL != this.props.videoURL) {
+            jwplayer().onPlaylist(function() {
+              jwplayer().playlistItem(0);
+            });
+
+            jwplayer().load([{file: this.props.videoURL}]);
+          }
+        },
+
+        setupVideo: function() {
+          this.video.setup({
+            playlist: [{file: this.props.videoURL}],
+            width: '100%',
+            aspectratio: '16:9'
+          });
+        },
+
+        openNewWindow: function(e) {
+          e.preventDefault();
+
+          if (!window.opener) {
+            window.open(window.location.href, '_blank');
+          }
+        },
+
+        render: function() {
+          return (
+            <div>
+              <div className="embed-responsive embed-responsive-16by9">
+                <div ref="video" id="video" className="embed-responsive-item"></div>
+              </div>
+              <div>
+                <small className="pull-right">
+                  <em><a href="#" onClick={this.openNewWindow}>Open in new window</a></em>
+                </small>
+                &nbsp;
+              </div>
+            </div>
+          );
+        }
+      });
+
+      var VideoList = React.createClass({
+        render: function() {
+          var videoOptions = this.props.videos.map(function (video, index) {
+            return <option value={index} key={index}>{video.topic}</option>;
+          });
+
+          return (
+            <form>
+              <select value={this.props.selectedVideo} onChange={this.props.selectVideo} className="form-control">
+                {videoOptions}
+              </select>
+            </form>
+          );
+        }
+      });
+
+      React.render(<Marksheet />, document.getElementById('container'));
+    </script>
+  </body>
+</html>
